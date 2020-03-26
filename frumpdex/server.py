@@ -33,10 +33,14 @@ def register_apis():
 
 
 
-if __name__ == '__main__':
-    db = FrumpdexDatabase()
+def run_server():
+    db = FrumpdexDatabase.instance()
     db.connect()
 
     register_apis()
 
     app.run()
+
+
+if __name__ == '__main__':
+    run_server()
