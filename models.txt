@@ -1,0 +1,35 @@
+stock
+-----
+
+- name: str
+- exchange_id: ObjectId
+- ups: int
+- down: int
+- contributions: int
+
+
+stock_day_activity
+------------------
+
+- stock_id: Objectid
+- date: datetime
+- ups: int
+- downs: int
+- contributions: int
+
+
+votes
+-----
+
+- user_id: Objectid
+- stock_id: Objectid
+- exchange_id: Objectid
+- vote: int
+- message: str
+
+
+
+Tasks
+-----
+
+Midnight - Get user activity and store contributions, create next day's stock_day_votes object

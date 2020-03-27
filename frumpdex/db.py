@@ -10,6 +10,7 @@ from datetime import datetime
 import pymongo
 import pymongo.collection
 from bson import ObjectId
+import arrow
 
 
 class ItemDoesNotExist(Exception):
@@ -62,10 +63,10 @@ class FrumpdexDatabase:
         return self.client.frumpdex.users
 
     @property
-    def trades(self) -> pymongo.collection.Collection:
+    def votes(self) -> pymongo.collection.Collection:
         if not self.client:
             raise TypeError('database is not connected')
-        return self.client.frumpdex.trades
+        return self.client.frumpdex.votes
 
     @property
     def exchanges(self) -> pymongo.collection.Collection:
@@ -79,19 +80,28 @@ class FrumpdexDatabase:
             raise TypeError('database is not connected')
         return self.client.frumpdex.stocks
 
-    def buy(self, stock_id: DataItemId, token: str, amount: int, message: str = None) -> None:
-        if amount < 0:
-            amount = amount * -1
-        self.trade(stock_id, token, amount, message)
+    @property
+    def stock_day_activity(self) -> pymongo.collection.Collection:
+        if not self.client:
+            raise TypeError('database is not connected')
+        return self.client.frumpdex.stock_day_activity
 
-    def sell(self, stock_id: DataItemId, token: str, amount: int, message: str = None) -> None:
-        if amount > 0:
-            amount = amount * -1
-        self.trade(stock_id, token, amount, message)
-
-    def trade(self, stock_id: DataItemId, token: str, amount: int, message: str = None) -> int:
+    def vote(self, stock_id: DataItemId, token: str, direction: str, message: str = None) -> dict:
         stock_id = ObjectId(stock_id)
         stock = self.stocks.find_one(stock_id)
+
+        if direction in ('up', '1', '+1'):
+            inc_doc = {
+                'ups': 1,
+                'votes': 1
+            }
+        elif direction in ('down', '-1'):
+            inc_doc = {
+                'downs': 1,
+                'votes': -1
+            }
+        else:
+            raise TypeError(f'invalid vote: {direction} -- must be either "up" or "down"')
 
         if not stock:
             raise ItemDoesNotExist('stock')
@@ -103,22 +113,25 @@ class FrumpdexDatabase:
         if user['exchange_id'] != stock['exchange_id']:
             raise ItemDoesNotExist('user')
 
-        with self.__trade_lock:
-            timestamp = datetime.utcnow()
-            self.trades.insert_one({
-                'user_id': user['_id'],
-                'stock_id': stock_id,
-                'value': stock['value'] + amount,
-                'change': amount,
-                'message': message or '',
-                'timestamp': timestamp
-            })
-            self.stocks.update_one({'_id': stock_id}, {
-                '$inc': {'value': amount},
-                '$set': {'last_update': timestamp}
-            })
+        vote = {
+            '_id': ObjectId(),
+            'stock_id': stock_id,
+            'user_id': user['_id'],
+            'exchange_id': user['exchange_id'],
+            'vote': 1 if direction == 'up' else -1,
+            'message': message or ''
+        }
+        self.votes.insert_one(vote)
 
-        return stock['value'] + amount
+        self.stock_day_activity.upsert_one({
+            'stock_id': stock['_id'],
+            'exchange_id': stock['exchange_id'],
+            'date': arrow.now().date()
+        }, {
+            '$inc': inc_doc
+        })
+
+        return vote
 
     def create_exchange(self, name: str) -> ObjectId:
         exchange = {'name': name, '_id': ObjectId()}
