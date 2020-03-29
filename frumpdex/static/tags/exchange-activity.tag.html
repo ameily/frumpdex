@@ -77,6 +77,7 @@
   <script>
     export default {
       onBeforeMount(props, state) {
+        this.exchangeId = props.exchangeId;
         this.state = {
           stocks: [],
           pendingVote: {
@@ -93,10 +94,20 @@
       },
 
       onMounted() {
+        var self = this;
         var comment = this.$('#vote-comment');
         $(this.$('#vote-modal')).on('shown.bs.modal', function () {
           // $('#myInput').trigger('focus')
           $(comment).trigger('focus').val('');
+        });
+
+        this.socket = io();
+
+        this.socket.on('connect', function() {
+          self.socket.emit('join', {room: `exchange.${self.exchangeId}`});
+        });
+        this.socket.on('vote', function(vote) {
+          self.addVote(vote);
         });
       },
 
@@ -141,6 +152,36 @@
 
           self.update({stocks});
         });
+      },
+
+      addVote(vote) {
+        var stockIndex = -1;
+        var stock;
+
+        this.state.stocks.forEach((stock, index) => {
+          if(stock._id == vote.stock_id) {
+            stockIndex = index;
+          }
+        });
+
+        if(stockIndex < 0) {
+          return;
+        }
+
+        stock = this.state.stocks[stockIndex];
+
+        stock.votes += 1;
+        if(vote.vote > 0) {
+          stock.ups += vote.vote;
+          stock.activity.ups += vote.vote;
+        } else {
+          stock.downs -= vote.vote;
+          stock.activity.downs -= vote.vote;
+        }
+
+        this.state.stocks.splice(stockIndex, 1, stock);
+        this.setGeneratedActivityFields(stock.activity);
+        this.update();
       },
 
       setGeneratedActivityFields(activity) {

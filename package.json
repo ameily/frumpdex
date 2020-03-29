@@ -1,0 +1,27 @@
+{
+  "name": "frumpdex",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "bootstrap": "^4.4.1",
+    "jquery": "^3.4.1",
+    "open-iconic": "^1.1.1",
+    "riot": "^4.11.1",
+    "socket.io-client": "^2.3.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ameily/frumpdex.git"
+  },
+  "author": "Adam Meily",
+  "license": "BSD-2-CLAUSE",
+  "bugs": {
+    "url": "https://github.com/ameily/frumpdex/issues"
+  },
+  "homepage": "https://github.com/ameily/frumpdex"
+}

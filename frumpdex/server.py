@@ -7,8 +7,9 @@ import sys
 import json
 
 from flask import Flask, g, request, session, Blueprint, Response
-from flask.json import JSONEncoder
+import flask.json
 from flask_restful import Api
+from flask_socketio import SocketIO, join_room, leave_room
 from bson import ObjectId
 
 from .db import FrumpdexDatabase
@@ -18,7 +19,7 @@ from .views.lib import get_blueprints
 logger = logging.getLogger('frumpdex')
 
 
-class FrumpdexJsonEncoder(JSONEncoder):
+class FrumpdexJsonEncoder(flask.json.JSONEncoder):
 
     def default(self, o):
         return serialize_extra_types(o, default=super().default)
@@ -31,6 +32,8 @@ api = Api(app)
 app.secret_key = b'\x89i\xc1\x1f 8B?\xbd\x0b\x95\xa7;0\xd2K'
 app.json_encoder = FrumpdexJsonEncoder
 
+socketio = SocketIO(app, json=flask.json)
+
 
 @api.representation('application/json')
 def api_json_serializer(data, code, headers=None):
@@ -38,10 +41,7 @@ def api_json_serializer(data, code, headers=None):
                     mimetype='application/json')
 
 
-@app.before_request
-def before_request():
-    g.db = FrumpdexDatabase.instance()
-
+def get_request_user(db: FrumpdexDatabase):
     token = session.get('token')
     header_auth = request.headers.get('Authorization')
     if not token and header_auth:
@@ -49,8 +49,42 @@ def before_request():
         if len(parts) == 2 and parts[0] == 'Bearer':
             token = parts[1]
 
-    g.user = g.db.users.find_one({'token': token}) if token else None
+    return db.users.find_one({'token': token}) if token else None
+
+
+@app.before_request
+def before_request():
+    g.db = FrumpdexDatabase.instance()
+    g.socketio = socketio
+
+    g.user = get_request_user(g.db)
     g.exchange = g.db.exchanges.find_one({'_id': g.user['exchange_id']}) if g.user else None
+
+
+@socketio.on('connect')
+def handle_connect():
+    user = get_request_user(FrumpdexDatabase.instance())
+    if not user:
+        raise ConnectionRefusedError('unauthorized')
+
+
+@socketio.on('join')
+def handle_join_room(data):
+    room = data["room"]
+    user = get_request_user(FrumpdexDatabase.instance())
+
+    if room.startswith('exchange.'):
+        exchange_id = room.split('.', 1)[1]
+        if user and exchange_id == str(user['exchange_id']):
+            logger.debug(f'join room: {room}')
+            join_room(room)
+
+
+@socketio.on('leave')
+def handle_leave_room(data):
+    logger.debug(f'leave room: {data["room"]}')
+    leave_room(data['room'])
+
 
 
 def register_apis():
@@ -82,7 +116,8 @@ def run_server(debug: bool = False, host: str = '127.0.0.1', port: int = 5000):
     register_apis()
     register_views()
 
-    app.run(debug=debug, host=host, port=port)
+    # app.run(debug=debug, host=host, port=port)
+    socketio.run(app, debug=debug, host=host, port=port)
 
 
 if __name__ == '__main__':

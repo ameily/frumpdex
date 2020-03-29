@@ -45,6 +45,8 @@ class VoteStockResource(VoteResource):
         vote = g.db.vote(stock_id, g.user['token'], request.form['direction'],
                          request.form['message'])
 
+        g.socketio.emit('vote', vote, room=f'exchange.{stock["exchange_id"]}')
+
         return vote
 
 

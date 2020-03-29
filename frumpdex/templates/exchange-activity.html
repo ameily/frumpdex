@@ -5,13 +5,14 @@
   <div class='row'>
     <div class='col-sm-12 col-md-6 col-lg-6 col-xl-6'>
       <h1>{{g.exchange.name}} <small class='text-muted'>Exchange</small></h1>
-      <exchange-activity></exchange-activity>
+      <exchange-activity exchange-id='{{g.exchange._id}}'></exchange-activity>
     </div>
   </div>
 </div>
 {% endblock %}
 
 {% block footer %}
+<script src='/vendor/socket.io-client/dist/socket.io.js'></script>
 <script src='/static/tags/exchange-activity.tag.html' type='riot'></script>
 <script>
   Page.on('ready', function() {
