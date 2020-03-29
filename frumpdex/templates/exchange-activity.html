@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<div class='container'>
+  <div class='row'>
+    <div class='col-sm-12 col-md-6 col-lg-6 col-xl-6'>
+      <h1>{{g.exchange.name}} <small class='text-muted'>Exchange</small></h1>
+      <exchange-activity></exchange-activity>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block footer %}
+<script src='/static/tags/exchange-activity.tag.html' type='riot'></script>
+<script>
+  Page.on('ready', function() {
+    riot.mount('exchange-activity');
+  });
+</script>
+{% endblock %}

@@ -9,8 +9,8 @@ from bson import ObjectId
 from .lib import register_resource
 
 
-@register_resource('/stocks', '/stocks/<int:stock_id>')
-class ExchangeResource(Resource):
+@register_resource('/stocks', '/stocks/<string:stock_id>')
+class StockResource(Resource):
 
     def get(self, stock_id: str = None):
         if stock_id:

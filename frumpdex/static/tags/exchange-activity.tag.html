@@ -1,0 +1,199 @@
+<exchange-activity>
+  <style>
+    table.stocks td {
+      padding: 12px;
+    }
+
+    table.stocks td.vote {
+      padding: 0px;
+    }
+
+    table.stocks td.vote button {
+      padding: 12px;
+      border: 0;
+      /* display: block; */
+      /* width: 100%; */
+      border-radius: 0;
+      color: #fff;
+    }
+
+    #vote-comment-form {
+      position: absolute;
+    }
+  </style>
+  <table class='table table-bordered table-dark table-striped table-hover stocks'>
+    <thead>
+      <tr>
+        <th>Stock</th>
+        <th class='text-center'><span class='oi oi-thumb-up'></span></th>
+        <th class='text-center'><span class='oi oi-thumb-down'></span></th>
+        <th class='text-center'><span class='oi oi-graph'></span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr each='{stock in state.stocks}' class='{stock.activity.diffClass}'>
+        <td>
+          {stock.name}
+        </td>
+        <td class='vote'>
+          <button onclick='{e => voteUp(e, stock)}' class='btn  btn-block {stock.activity.diffClass == "bg-success" ? "btn-success" : "btn-outline-success"}'>
+            {stock.activity.ups}
+          </button>
+        </td>
+        <td class='vote'>
+          <button onclick='{e => voteDown(e, stock)}' class='btn btn-block  {stock.activity.diffClass == "bg-danger" ? "btn-danger" : "btn-outline-danger"}'>
+            {stock.activity.downs}
+          </button>
+        </td>
+        <td class=' text-center'>
+          {stock.activity.diff}
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class='modal' tabindex='-1' id='vote-modal'>
+    <div class='modal-dialog'>
+      <div class='modal-content'>
+        <div class='modal-body'>
+          <form onsubmit='{submitVote}'>
+            <h3>
+              {state.pendingVote.stockName} <small class='text-muted'> Vote </small>
+            </h3>
+            <div class='input-group'>
+              <input class='form-control' placeholder='Comment' name='comment' id='vote-comment' value='{state.pendingVote.comment}'>
+              <div class='input-group-append'>
+                <button class='btn {state.pendingVote.direction == "up" ? "btn-success" : "btn-danger"}'>
+                  <span class='oi oi-thumb-{state.pendingVote.direction}'></span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    export default {
+      onBeforeMount(props, state) {
+        this.state = {
+          stocks: [],
+          pendingVote: {
+            stockId: '',
+            stockName: '',
+            direction: '',
+            active: false,
+            comment: '',
+            top: 0,
+            left: 0
+          }
+        };
+        this.queryExchange();
+      },
+
+      onMounted() {
+        var comment = this.$('#vote-comment');
+        $(this.$('#vote-modal')).on('shown.bs.modal', function () {
+          // $('#myInput').trigger('focus')
+          $(comment).trigger('focus').val('');
+        });
+      },
+
+      queryExchange() {
+        var self = this;
+        Promise.all([
+          $.getJSON('/api/v1/exchange/stocks'),
+          $.getJSON('/api/v1/exchange/activity')
+        ]).then(data => {
+          var stocks = data[0];
+          var activity = data[1];
+
+          stocks = stocks.sort(function(left, right) {
+            if(left.name < right.name) {
+              return -1;
+            }
+
+            if(left.name > right.name) {
+              return 1;
+            }
+
+            return 0;
+          });
+
+          self.stockLookup = {};
+          stocks.forEach(stock => {
+            self.stockLookup[stock._id] = stock;
+            stock.activity = {
+              ups: 0,
+              downs: 0,
+              votes: 0
+            };
+          });
+
+          activity.forEach(act => {
+            self.stockLookup[act.stock_id].activity = act;
+          });
+
+          stocks.forEach(stock => {
+            self.setGeneratedActivityFields(stock.activity);
+          });
+
+          self.update({stocks});
+        });
+      },
+
+      setGeneratedActivityFields(activity) {
+        var diff = activity.ups - activity.downs;
+
+        if(diff > 0) {
+          activity.diffClass = 'bg-success';
+          activity.diff = `+${diff}`;
+        } else if(diff < 0) {
+          activity.diffClass = 'bg-danger';
+          activity.diff = diff;
+        } else {
+          activity.diffClass = ''
+          activity.diff = `+0`;
+        }
+      },
+
+      voteUp(evt, stock) {
+        console.log('voteUp');
+        this.showCommentForm(evt.currentTarget, stock, 'up');
+      },
+
+      voteDown(evt, stock) {
+        console.log('voteDown');
+        this.showCommentForm(evt.currentTarget, stock, 'down');
+      },
+
+      showCommentForm(target, stock, direction) {
+        var pos = $(target).offset();
+
+        this.update({
+          pendingVote: {
+            stockId: stock._id,
+            stockName: stock.name,
+            comment: '',
+            direction: direction,
+          }
+        });
+        $(this.$('#vote-modal')).modal('show');
+      },
+
+      submitVote(e) {
+        e.preventDefault();
+        $(this.$('#vote-modal')).modal('hide');
+
+        $.post(`/api/v1/stocks/${this.state.pendingVote.stockId}/votes`, {
+          direction: this.state.pendingVote.direction,
+          message: $(this.$('#vote-comment')).val()
+        }).done(vote => {
+          console.log('Vote');
+          console.log(vote);
+        });
+      }
+    }
+  </script>
+</exchange-activity>

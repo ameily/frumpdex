@@ -14,5 +14,16 @@
         "**/.DS_Store": true,
         "venv": true,
         "**/__pycache__": true
+    },
+    "[html]": {
+        "editor.suggest.insertMode": "replace",
+        "editor.tabSize": 2
+    },
+    "[json]": {
+        "editor.quickSuggestions": {
+            "strings": true
+        },
+        "editor.suggest.insertMode": "replace",
+        "editor.tabSize": 2
     }
 }

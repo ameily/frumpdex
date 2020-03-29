@@ -27,7 +27,7 @@ class UserCommand(Command):
                                 required=True)
 
         describe_cmd = subcmd.add_parser('describe', help='describe user details')
-        describe_cmd.add_argument('-u', '--user-id', help='user id', action='store', required=True)
+        describe_cmd.add_argument('id', help='user id')
 
     def run(self, shell, args):
         try:
@@ -42,7 +42,7 @@ class UserCommand(Command):
             return self.create_user(shell, args.exchange_id, args.name)
 
         if args.subcmd == 'describe':
-            return self.describe_user(shell, args.user_id)
+            return self.describe_user(shell, args.id)
 
         self.error(shell, f'unknown sub-command: {args.subcmd}')
 

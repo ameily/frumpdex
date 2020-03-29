@@ -2,15 +2,23 @@
 # Copyright (c) 2020, Adam Meily
 # All rights reserved.
 #
+import logging
 from typing import List, Union, Any
 import threading
 import secrets
-from datetime import datetime
 
 import pymongo
 import pymongo.collection
+import pymongo.database
 from bson import ObjectId
 import arrow
+
+logger = logging.getLogger(__name__)
+
+
+def midnight(reftime: arrow.Arrow = None) -> arrow.Arrow:
+    reftime = reftime or arrow.now()
+    return reftime.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 class ItemDoesNotExist(Exception):
@@ -56,35 +64,57 @@ class FrumpdexDatabase:
 
         self.client = client
 
+    def _create_indexes(self):
+        db = self.db
+        collection_names = db.collection_names()
+        if 'users' not in collection_names:
+            logger.info('creating index for users collection')
+            users = db.create_collection('users')
+            users.create_index('token')
+
+        if 'votes' not in collection_names:
+            logger.info('creating index for votes collection')
+            votes = db.create_collection('votes')
+            votes.create_index('exchange_id')
+            votes.create_index('stock_id')
+            votes.create_index('user_id')
+
+        if 'stock_day_activity' not in collection_names:
+            logger.info('creating index for stock_day_activity collection')
+            activity = db.create_collection('stock_day_activity')
+            activity.create_index('exchange_id')
+            activity.create_index('stock_id')
+
+        if 'stocks' not in collection_names:
+            logger.info('creating index for stocks collection')
+            stocks = db.create_collection('stocks')
+            stocks.create_index('exchange_id')
+
     @property
-    def users(self) -> pymongo.collection.Collection:
+    def db(self) -> pymongo.database.Database:
         if not self.client:
             raise TypeError('database is not connected')
-        return self.client.frumpdex.users
+        return self.client.frumpdex
+
+    @property
+    def users(self) -> pymongo.collection.Collection:
+        return self.db.users
 
     @property
     def votes(self) -> pymongo.collection.Collection:
-        if not self.client:
-            raise TypeError('database is not connected')
-        return self.client.frumpdex.votes
+        return self.db.votes
 
     @property
     def exchanges(self) -> pymongo.collection.Collection:
-        if not self.client:
-            raise TypeError('database is not connected')
-        return self.client.frumpdex.exchanges
+        return self.db.exchanges
 
     @property
     def stocks(self) -> pymongo.collection.Collection:
-        if not self.client:
-            raise TypeError('database is not connected')
-        return self.client.frumpdex.stocks
+        return self.db.stocks
 
     @property
     def stock_day_activity(self) -> pymongo.collection.Collection:
-        if not self.client:
-            raise TypeError('database is not connected')
-        return self.client.frumpdex.stock_day_activity
+        return self.db.stock_day_activity
 
     def vote(self, stock_id: DataItemId, token: str, direction: str, message: str = None) -> dict:
         stock_id = ObjectId(stock_id)
@@ -93,11 +123,13 @@ class FrumpdexDatabase:
         if direction in ('up', '1', '+1'):
             inc_doc = {
                 'ups': 1,
+                'downs': 0,
                 'votes': 1
             }
         elif direction in ('down', '-1'):
             inc_doc = {
                 'downs': 1,
+                'ups': 0,
                 'votes': -1
             }
         else:
@@ -106,12 +138,14 @@ class FrumpdexDatabase:
         if not stock:
             raise ItemDoesNotExist('stock')
 
-        user = self.login(stock['exchange_id'], token)
+        user = self.login(token)
         if not user:
             raise ItemDoesNotExist('user')
 
         if user['exchange_id'] != stock['exchange_id']:
             raise ItemDoesNotExist('user')
+
+        today = midnight().datetime
 
         vote = {
             '_id': ObjectId(),
@@ -119,15 +153,22 @@ class FrumpdexDatabase:
             'user_id': user['_id'],
             'exchange_id': user['exchange_id'],
             'vote': 1 if direction == 'up' else -1,
-            'message': message or ''
+            'message': message or '',
+            'date': today
         }
+
+        logger.info(f'user {user["name"]} is voting {direction} stock {stock["name"]}')
         self.votes.insert_one(vote)
 
-        self.stock_day_activity.upsert_one({
+        self.stock_day_activity.update_one({
             'stock_id': stock['_id'],
             'exchange_id': stock['exchange_id'],
-            'date': arrow.now().date()
+            'date': today
         }, {
+            '$inc': inc_doc
+        }, upsert=True)
+
+        self.stocks.update_one({'_id': stock['_id']}, {
             '$inc': inc_doc
         })
 
@@ -136,6 +177,7 @@ class FrumpdexDatabase:
     def create_exchange(self, name: str) -> ObjectId:
         exchange = {'name': name, '_id': ObjectId()}
         self.exchanges.insert_one(exchange)
+        logger.info(f'created exchange {name} -> {exchange["_id"]}')
         return exchange
 
     def create_user(self, exchange_id: DataItemId, name: str) -> dict:
@@ -152,17 +194,33 @@ class FrumpdexDatabase:
         }
         self.users.insert_one(user)
 
+        logger.info(f'created user {name} @ {exchange["name"]} -> {user["_id"]}')
+
         return user
 
-    def create_stock(self, exchange_id: DataItemId, name: str, value: int = 0) -> dict:
+    def create_stock(self, exchange_id: DataItemId, name: str) -> dict:
+        exchange = self.exchanges.find_one(ObjectId(exchange_id))
+        if not exchange:
+            raise ItemDoesNotExist('exchange')
+
         stock = {
             'exchange_id': ObjectId(exchange_id),
             'name': name,
-            'value': value,
+            'ups': 0,
+            'downs': 0,
+            'votes': 0,
             '_id': ObjectId()
         }
         self.stocks.insert_one(stock)
+
+        logger.info(f'created stock {name} @ {exchange["name"]} -> {stock["_id"]}')
         return stock
 
-    def login(self, exchange_id: DataItemId, token: str) -> dict:
-        return self.users.find_one({'exchange_id': ObjectId(exchange_id), 'token': token})
+    def login(self, token: str) -> dict:
+        user = self.users.find_one({'token': token})
+        if user:
+            logger.info(f'user authenticated: {user["name"]} @ exchange id {user["exchange_id"]}')
+        else:
+            logger.error(f'user token incorrect: {token}')
+
+        return user

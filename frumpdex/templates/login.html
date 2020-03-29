@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+
+{% block body %}
+<div class='container'>
+  <div class='row'>
+    <div class='col-sm-4'>
+      <h1>Login</h1>
+      <form method='POST'>
+        <div class='form-group'>
+          <input class='form-control' type='text' name='token' placeholder='API Token'>
+        </div>
+
+        <button type='submit' class='btn btn-primary btn-block'>Login</button>
+
+        {% if error %}
+          <div class='alert alert-danger mt-3'>{{error}}</div>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block footer %}
+<script src='/static/tags/exchange-activity.tag.html' type='riot'></script>
+<script>
+  Page.on('ready', function() {
+    riot.mount('exchange-activity');
+  });
+</script>
+{% endblock %}

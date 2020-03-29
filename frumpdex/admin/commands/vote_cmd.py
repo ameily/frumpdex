@@ -8,10 +8,10 @@ from bson import ObjectId
 from pypsi.core import Command, PypsiArgParser, CommandShortCircuit
 from pypsi.format import Table, Column
 
-class StockCommand(Command):
+class VoteCommand(Command):
 
     def __init__(self):
-        super().__init__(name='stock', brief='manage stocks')
+        super().__init__(name='vote', brief='manage votes')
         self.parser = PypsiArgParser()
         subcmd = self.parser.add_subparsers(help='subcmd', dest='subcmd', required=True)
 
@@ -23,8 +23,8 @@ class StockCommand(Command):
         create_cmd.add_argument('name', action='store', help='stock name')
         create_cmd.add_argument('-e', '--exchange-id', action='store', help='exchange id',
                                 required=True)
-        # create_cmd.add_argument('-v', '--value', action='store', type=int, default=1000,
-        #                         help='initial stock value')
+        create_cmd.add_argument('-v', '--value', action='store', type=int, default=1000,
+                                help='initial stock value')
 
     def run(self, shell, args):
         try:
@@ -36,7 +36,7 @@ class StockCommand(Command):
             return self.print_stocks(shell, args.exchange_id)
 
         if args.subcmd == 'new':
-            return self.create_stock(shell, args.exchange_id, args.name)
+            return self.create_stock(shell, args.exchange_id, args.name, args.value)
 
         self.error(shell, f'unknown sub-command: {args.subcmd}')
 
@@ -58,11 +58,11 @@ class StockCommand(Command):
         table.write(sys.stdout)
         return 0
 
-    def create_stock(self, shell, exchange_id: str, name: str):
-        stock = shell.ctx.db.create_stock(exchange_id, name)
+    def create_stock(self, shell, exchange_id: str, name: str, value: int):
+        stock = shell.ctx.db.create_stock(exchange_id, name, value)
         print('created new stock successfully')
         print()
         print('Id:   ', stock['_id'])
         print('Name: ', stock['name'])
-        # print('Value:', stock['value'])
+        print('Value:', stock['value'])
         return 0
