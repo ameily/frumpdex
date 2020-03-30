@@ -49,7 +49,6 @@ def parse_time_window_query(window: str) -> dict:
     elif window:
         q = {}  # TODO handle custom window
 
-    print('QUERY:', q)
     return q
 
 
