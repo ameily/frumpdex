@@ -43,14 +43,37 @@ class AdminShell(Shell):
     system_cmd = SystemCommand(use_shell=(sys.platform == 'win32'))
 
     def on_cmdloop_begin(self):
-        self.prompt = (f'{AnsiCodes.gray.prompt()}[$time]{AnsiCodes.reset.prompt()} '
-                       f'{AnsiCodes.cyan.prompt()}frumpdex{AnsiCodes.reset.prompt()} '
-                       f'{AnsiCodes.green.prompt()})>{AnsiCodes.reset.prompt()} ')
+        self.select_exchange(None)
         self.fallback_cmd = self.system_cmd
         self.ctx.db = FrumpdexDatabase()
         self.ctx.db.connect()
 
+    def select_exchange(self, exchange: dict):
+        self.ctx.exchange = exchange
+        prompt = (f'{AnsiCodes.gray.prompt()}[$time]{AnsiCodes.reset.prompt()} '
+                  f'{AnsiCodes.cyan.prompt()}frumpdex{AnsiCodes.reset.prompt()}')
+
+        if exchange:
+            prompt += (f'{AnsiCodes.yellow.prompt()}[{exchange["name"]}]'
+                       f'{AnsiCodes.reset.prompt()}')
+
+        prompt += f' {AnsiCodes.green.prompt()})>{AnsiCodes.reset.prompt()} '
+        self.prompt = prompt
+
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--file', action='store', help='execute commands from file')
+
+    args = parser.parse_args()
+
     shell = AdminShell()
-    shell.cmdloop()
+
+    if args.file:
+        shell.on_cmdloop_begin()
+        with open(args.file, 'r') as fp:
+            shell.include(fp)
+    else:
+        shell.cmdloop()

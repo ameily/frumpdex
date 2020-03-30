@@ -7,6 +7,7 @@ import sys
 from bson import ObjectId
 from pypsi.core import Command, PypsiArgParser, CommandShortCircuit
 from pypsi.format import Table, Column
+from pypsi.completers import command_completer
 
 from frumpdex.db import ItemDoesNotExist
 
@@ -15,19 +16,25 @@ class UserCommand(Command):
     def __init__(self):
         super().__init__(name='user', brief='manage users')
         self.parser = PypsiArgParser()
-        subcmd = self.parser.add_subparsers(help='subcmd', dest='subcmd', required=True)
+        self.subcmd = self.parser.add_subparsers(help='subcmd', dest='subcmd', required=True)
 
 
-        list_cmd = subcmd.add_parser('list', help='list all users in an exchange')
+        list_cmd = self.subcmd.add_parser('list', help='list all users in an exchange')
         list_cmd.add_argument('-e', '--exchange-id', action='store', help='exchange id')
 
-        create_cmd = subcmd.add_parser('new', help='create new user')
+        create_cmd = self.subcmd.add_parser('new', help='create new user')
         create_cmd.add_argument('name', action='store', help='user name')
-        create_cmd.add_argument('-e', '--exchange-id', action='store', help='exchange id',
-                                required=True)
+        create_cmd.add_argument('-e', '--exchange-id', action='store', help='exchange id')
 
-        describe_cmd = subcmd.add_parser('describe', help='describe user details')
+        describe_cmd = self.subcmd.add_parser('describe', help='describe user details')
         describe_cmd.add_argument('id', help='user id')
+
+    def complete(self, shell, args, prefix):
+        if len(args) == 1 and args[0].startswith('-'):
+            completions = command_completer(self.parser, shell, args, prefix)
+        else:
+            completions = command_completer(self.subcmd, shell, args, prefix)
+        return completions
 
     def run(self, shell, args):
         try:
@@ -36,10 +43,20 @@ class UserCommand(Command):
             return err.code
 
         if args.subcmd == 'list':
-            return self.print_users(shell, args.exchange_id)
+            exchange_id = args.exchange_id
+            if not exchange_id and shell.ctx.exchange:
+                exchange_id = shell.ctx.exchange['_id']
+            return self.print_users(shell, exchange_id)
 
         if args.subcmd == 'new':
-            return self.create_user(shell, args.exchange_id, args.name)
+            exchange_id = args.exchange_id
+            if not exchange_id and shell.ctx.exchange:
+                exchange_id = shell.ctx.exchange['_id']
+            elif not exchange_id:
+                self.error(shell, 'missing required argument -e/--exchange-id')
+                return 1
+
+            return self.create_user(shell, exchange_id, args.name)
 
         if args.subcmd == 'describe':
             return self.describe_user(shell, args.id)

@@ -11,6 +11,7 @@ import pymongo
 import pymongo.collection
 import pymongo.database
 from bson import ObjectId
+from slugify import slugify
 import arrow
 
 logger = logging.getLogger(__name__)
@@ -198,14 +199,18 @@ class FrumpdexDatabase:
 
         return user
 
-    def create_stock(self, exchange_id: DataItemId, name: str) -> dict:
+    def create_stock(self, exchange_id: DataItemId, name: str, symbol: str = None) -> dict:
         exchange = self.exchanges.find_one(ObjectId(exchange_id))
         if not exchange:
             raise ItemDoesNotExist('exchange')
 
+        if not symbol:
+            symbol = slugify(name)
+
         stock = {
             'exchange_id': ObjectId(exchange_id),
             'name': name,
+            'symbol': symbol,
             'ups': 0,
             'downs': 0,
             'votes': 0,
