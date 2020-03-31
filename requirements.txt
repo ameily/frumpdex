@@ -1,5 +1,9 @@
 arrow
 flask
 flask_restful
+flask_socketio
+gevent
+gevent-websocket
 pymongo
 pypsi
+slugify

@@ -59,8 +59,8 @@ class FrumpdexDatabase:
         self.client = None
         self.__trade_lock = threading.Lock()
 
-    def connect(self, hostname: str = 'localhost', port: int = 27017) -> None:
-        client = pymongo.MongoClient(hostname, port)
+    def connect(self, uri: str = 'mongodb://localhost:27017') -> None:
+        client = pymongo.MongoClient(uri)
         client.server_info()
 
         self.client = client

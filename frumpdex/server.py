@@ -99,26 +99,48 @@ def register_views():
         app.register_blueprint(blueprint)
 
 
-def setup_logging(debug: bool):
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s'))
-    logger.addHandler(handler)
+def setup_logging(logfile: str, debug: bool, silent: bool):
+    fmt = '[%(asctime)s] %(levelname)s: %(message)s'
+    if not silent:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(logging.Formatter(fmt))
+        logger.addHandler(handler)
+
+    if logfile:
+        handler = logging.FileHandler(logfile, 'a')
+        handler.setFormatter(logging.Formatter(fmt))
+
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
 
 
-
-def run_server(debug: bool = False, host: str = '127.0.0.1', port: int = 5000):
-    setup_logging(debug)
+def run_server(debug: bool = False, host: str = '127.0.0.1', port: int = 5000,
+               logfile: str = None, silent: bool = False, mongo_uri: str = None):
+    setup_logging(logfile, debug=debug, silent=silent)
 
     db = FrumpdexDatabase.instance()
-    db.connect()
+    db.connect(mongo_uri)
 
     register_apis()
     register_views()
 
-    # app.run(debug=debug, host=host, port=port)
+    logger.info(f'starting frumpdex server: http://{host}:{port}')
     socketio.run(app, debug=debug, host=host, port=port)
 
 
 if __name__ == '__main__':
-    run_server(debug=True)
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--port', type=int, default=5000, help='web server listening port',
+                        action='store')
+    parser.add_argument('-H', '--host', default='0.0.0.0', help='web server listening address',
+                        action='store')
+    parser.add_argument('--debug', action='store_true', help='debug mode')
+    parser.add_argument('-l', '--log', action='store', help='log file', dest='logfile')
+    parser.add_argument('-s', '--silent', action='store_true', help='disable console output')
+    parser.add_argument('-m', '--mongo-uri', action='store', help='MongoDB URI',
+                        default='mongodb://localhost:27017')
+
+    args = parser.parse_args()
+    run_server(debug=args.debug, host=args.host, port=args.port, logfile=args.logfile,
+               silent=args.silent, mongo_uri=args.mongo_uri)
