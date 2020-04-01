@@ -68,6 +68,11 @@
                 </button>
               </div>
             </div>
+            <div class='mt-2'>
+              <rating-input
+                selected-class='{state.pendingVote.direction == "up" ? "text-success" : "text-danger" }'
+                icon='{state.pendingVote.direction == "up" ? "star" : "trash" }'></rating-input>
+            </div>
           </form>
         </div>
       </div>
@@ -219,6 +224,7 @@
             comment: '',
             direction: direction,
           }
+          // this.$()
         });
         $(this.$('#vote-modal')).modal('show');
       },

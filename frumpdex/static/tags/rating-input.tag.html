@@ -1,0 +1,54 @@
+<rating-input>
+  <style>
+    .rating {
+      color: #6c757d;
+    }
+
+    .rating-icon:hover {
+
+    }
+
+    .sep {
+      display: inline-block;
+      margin-left: 12px;
+    }
+  </style>
+  <div class=''>
+    <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
+    <span class='sep'>&nbsp;</span>
+    <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
+    <span class='sep'>&nbsp;</span>
+    <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
+    <span class='sep'>&nbsp;</span>
+    <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
+    <span class='sep'>&nbsp;</span>
+    <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
+  </div>
+
+  <script>
+    export default {
+      onBeforeMount(props, state) {
+        this.state = {
+          value: 0
+        };
+      },
+
+      rate(e) {
+        var rating = 0;
+        var self = this;
+        this.$$('.rating').forEach((ele, i) => {
+          if(e.target === ele) {
+            rating = i + 1;
+            ele.classList.add(self.props.selectedClass);
+          } else if(!rating) {
+            ele.classList.add(self.props.selectedClass);
+          } else {
+            ele.classList.remove(self.props.selectedClass);
+          }
+
+          this.update({value: rating});
+        });
+      }
+    }
+  </script>
+</rating-input>
