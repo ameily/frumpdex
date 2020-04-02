@@ -5,6 +5,7 @@
 import logging
 import sys
 import json
+from typing import List
 
 from flask import Flask, g, request, session, Blueprint, Response
 import flask.json
@@ -23,7 +24,6 @@ class FrumpdexJsonEncoder(flask.json.JSONEncoder):
 
     def default(self, o):
         return serialize_extra_types(o, default=super().default)
-
 
 
 app = Flask(__name__)
@@ -114,7 +114,8 @@ def setup_logging(logfile: str, debug: bool, silent: bool):
 
 
 def run_server(debug: bool = False, host: str = '127.0.0.1', port: int = 5000,
-               logfile: str = None, silent: bool = False, mongo_uri: str = None):
+               logfile: str = None, silent: bool = False, mongo_uri: str = None,
+               cors_allowed_origins: List[str] = None):
     setup_logging(logfile, debug=debug, silent=silent)
 
     db = FrumpdexDatabase.instance()
@@ -122,6 +123,10 @@ def run_server(debug: bool = False, host: str = '127.0.0.1', port: int = 5000,
 
     register_apis()
     register_views()
+
+    if cors_allowed_origins:
+        # is this a hack? idk
+        socketio.server.eio.cors_allowed_origins = cors_allowed_origins
 
     logger.info(f'starting frumpdex server: http://{host}:{port}')
     socketio.run(app, debug=debug, host=host, port=port)
@@ -140,7 +145,19 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--silent', action='store_true', help='disable console output')
     parser.add_argument('-m', '--mongo-uri', action='store', help='MongoDB URI',
                         default='mongodb://localhost:27017')
+    parser.add_argument('--cors-allowed-origins', default=None, action='store',
+                        help='comma-separated list of allowed origins ("*") for all')
 
     args = parser.parse_args()
+    if args.cors_allowed_origins:
+        if args.cors_allowed_origins == '*':
+            cors_allowed_origins = '*'
+        else:
+            cors_allowed_origins = [item.strip() for item in args.cors_allowed_origins.split(',')
+                                    if item.strip()]
+    else:
+        cors_allowed_origins = None
+
     run_server(debug=args.debug, host=args.host, port=args.port, logfile=args.logfile,
-               silent=args.silent, mongo_uri=args.mongo_uri)
+               silent=args.silent, mongo_uri=args.mongo_uri,
+               cors_allowed_origins=cors_allowed_origins)
