@@ -36,12 +36,16 @@
           {stock.name}
         </td>
         <td class='vote'>
-          <button onclick='{e => voteUp(e, stock)}' class='btn  btn-block {stock.activity.diffClass == "bg-success" ? "btn-success" : "btn-outline-success"}'>
+          <button
+            onclick='{e => voteUp(e, stock)}'
+            class='btn btn-block {stock.activity.diffClass == "bg-success" ? "btn-success" : "btn-outline-success"}'>
             {stock.activity.ups}
           </button>
         </td>
         <td class='vote'>
-          <button onclick='{e => voteDown(e, stock)}' class='btn btn-block  {stock.activity.diffClass == "bg-danger" ? "btn-danger" : "btn-outline-danger"}'>
+          <button
+            onclick='{e => voteDown(e, stock)}'
+            class='btn btn-block  {stock.activity.diffClass == "bg-danger" ? "btn-danger" : "btn-outline-danger"}'>
             {stock.activity.downs}
           </button>
         </td>
@@ -56,24 +60,11 @@
     <div class='modal-dialog'>
       <div class='modal-content'>
         <div class='modal-body'>
-          <form onsubmit='{submitVote}'>
-            <h3>
-              {state.pendingVote.stockName} <small class='text-muted'> Vote </small>
-            </h3>
-            <div class='input-group'>
-              <input class='form-control' placeholder='Comment' name='comment' id='vote-comment' value='{state.pendingVote.comment}'>
-              <div class='input-group-append'>
-                <button class='btn {state.pendingVote.direction == "up" ? "btn-success" : "btn-danger"}'>
-                  <span class='oi oi-thumb-{state.pendingVote.direction}'></span>
-                </button>
-              </div>
-            </div>
-            <div class='mt-2'>
-              <rating-input
-                selected-class='{state.pendingVote.direction == "up" ? "text-success" : "text-danger" }'
-                icon='{state.pendingVote.direction == "up" ? "star" : "trash" }'></rating-input>
-            </div>
-          </form>
+          <vote-form direction='{state.pendingVote.direction}'
+                     stock-name='{state.pendingVote.stockName}'
+                     stock-id='{state.pendingVote.stockId}'
+                     labels='{state.voteLabels}'
+                     on-submit='{submitVote}'></vote-form>
         </div>
       </div>
     </div>
@@ -88,22 +79,19 @@
           pendingVote: {
             stockId: '',
             stockName: '',
-            direction: '',
-            active: false,
-            comment: '',
-            top: 0,
-            left: 0
-          }
+            direction: ''
+          },
+          voteLabels: []
         };
         this.queryExchange();
+        this.queryVoteLabels();
       },
 
       onMounted() {
         var self = this;
         var comment = this.$('#vote-comment');
         $(this.$('#vote-modal')).on('shown.bs.modal', function () {
-          // $('#myInput').trigger('focus')
-          $(comment).trigger('focus').val('');
+          self.tag('vote-form').focus();
         });
 
         this.socket = io();
@@ -156,6 +144,13 @@
           });
 
           self.update({stocks});
+        });
+      },
+
+      queryVoteLabels() {
+        var self = this;
+        $.getJSON('/api/v1/vote-labels').then(voteLabels => {
+          self.update({voteLabels: voteLabels});
         });
       },
 
@@ -215,28 +210,22 @@
       },
 
       showCommentForm(target, stock, direction) {
-        var pos = $(target).offset();
-
         this.update({
           pendingVote: {
             stockId: stock._id,
             stockName: stock.name,
-            comment: '',
             direction: direction,
           }
-          // this.$()
         });
+
+        this.tag('vote-form').reset();
         $(this.$('#vote-modal')).modal('show');
       },
 
-      submitVote(e) {
-        e.preventDefault();
+      submitVote(vote) {
         $(this.$('#vote-modal')).modal('hide');
 
-        $.post(`/api/v1/stocks/${this.state.pendingVote.stockId}/votes`, {
-          direction: this.state.pendingVote.direction,
-          message: $(this.$('#vote-comment')).val()
-        }).done(vote => {
+        $.post(`/api/v1/stocks/${this.state.pendingVote.stockId}/votes`, vote).done(vote => {
           console.log('Vote');
           console.log(vote);
         });

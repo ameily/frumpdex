@@ -2,10 +2,12 @@
   <style>
     .rating {
       color: #6c757d;
+      cursor: pointer;
+      font-size: 1.2em;
     }
 
     .rating-icon:hover {
-
+      color: #b1b1b1;
     }
 
     .sep {
@@ -27,10 +29,14 @@
 
   <script>
     export default {
-      onBeforeMount(props, state) {
-        this.state = {
-          value: 0
-        };
+      onUpdated(props, state) {
+        this.$$('.rating').forEach((ele, i) => {
+          if(i < state.value) {
+            ele.classList.add(props.selectedClass);
+          } else {
+            ele.classList.remove(props.selectedClass);
+          }
+        });
       },
 
       rate(e) {
@@ -39,15 +45,14 @@
         this.$$('.rating').forEach((ele, i) => {
           if(e.target === ele) {
             rating = i + 1;
-            ele.classList.add(self.props.selectedClass);
-          } else if(!rating) {
-            ele.classList.add(self.props.selectedClass);
-          } else {
-            ele.classList.remove(self.props.selectedClass);
           }
-
-          this.update({value: rating});
         });
+
+        this.update({value: rating});
+      },
+
+      reset() {
+        this.update({value: 0});
       }
     }
   </script>

@@ -1,0 +1,82 @@
+<vote-form>
+  <form onsubmit='{submitVote}' class='needs-validation' novalidate>
+    <h3>
+      {props.stockName}
+      <small class='text-muted'> Vote </small>
+    </h3>
+    <div class='{ state.validated ? "was-validated" : "" }'>
+      <input class='form-control' placeholder='Comment' name='comment' id='vote-comment' required>
+      <div class='invalid-feedback'>
+        You fucked up
+      </div>
+    </div>
+
+    <div class='mt-4'>
+      <h4 if='{props.direction == "up"}'>What Went Well?</h4>
+      <h4 if='{props.direction == "down"}'>What Needs Improvement?</h4>
+      <div>
+        <label class='pr-3'>Rating:</label>
+        <rating-input style='display: inline-block'
+                      selected-class='{ props.direction == "up" ? "text-warning" : "text-danger" }'
+                      icon='{props.direction == "up" ? "star" : "trash" }'></rating-input>
+      </div>
+      <div class="form-check" each='{ label in props.labels }'>
+        <input class="form-check-input vote-label" type="checkbox" id='vlabel-{label.symbol}'
+               value='{label.symbol}'>
+        <label class="form-check-label" for='vlabel-{label.symbol}'>
+          {label.name}
+        </label>
+      </div>
+    </div>
+    <hr>
+    <div>
+      <button class='btn btn-block {props.direction == "up" ? "btn-success" : "btn-danger"}'>
+        <span class='oi oi-thumb-{props.direction}'></span>
+      </button>
+    </div>
+  </form>
+
+  <script>
+    export default {
+      onBeforeMount() {
+        this.state = {
+          validated: false
+        };
+      },
+
+      reset() {
+        this.$$('.vote-label').forEach(ele => ele.checked = false);
+        this.tag('rating-input').reset();
+        this.$('#vote-comment').value = '';
+        this.$('form').classList.remove('was-validated');
+        this.update({validated: false});
+      },
+
+      focus() {
+        $(this.$('#vote-comment')).trigger('focus');
+      },
+
+      submitVote(e) {
+        e.preventDefault();
+        var comment = this.$('#vote-comment').value.trim();
+        var form = this.$('form');
+        var selectedLabels = this.$$('.vote-label').filter(ele => ele.checked).map(ele => ele.value);
+        var isValid = form.checkValidity();
+
+        this.update({validated: true});
+
+        if(!isValid) {
+          return;
+        }
+
+        this.props.onSubmit({
+          comment: comment,
+          labels: selectedLabels,
+          rating: this.tag('rating-input').state.value,
+          direction: this.props.direction,
+          stock_id: this.props.stockId
+        });
+      }
+    }
+  </script>
+</vote-form>

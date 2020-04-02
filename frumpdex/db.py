@@ -106,6 +106,10 @@ class FrumpdexDatabase:
         return self.db.votes
 
     @property
+    def vote_labels(self) -> pymongo.collection.Collection:
+        return self.db.vote_labels
+
+    @property
     def exchanges(self) -> pymongo.collection.Collection:
         return self.db.exchanges
 
@@ -117,7 +121,8 @@ class FrumpdexDatabase:
     def stock_day_activity(self) -> pymongo.collection.Collection:
         return self.db.stock_day_activity
 
-    def vote(self, stock_id: DataItemId, token: str, direction: str, message: str = None) -> dict:
+    def vote(self, stock_id: DataItemId, token: str, direction: str, comment: str, rating: int = 0,
+             labels: List[str] = None) -> dict:
         stock_id = ObjectId(stock_id)
         stock = self.stocks.find_one(stock_id)
 
@@ -154,7 +159,9 @@ class FrumpdexDatabase:
             'user_id': user['_id'],
             'exchange_id': user['exchange_id'],
             'vote': 1 if direction == 'up' else -1,
-            'message': message or '',
+            'comment': comment,
+            'rating': rating,
+            'labels': labels or [],
             'date': today
         }
 
@@ -220,6 +227,15 @@ class FrumpdexDatabase:
 
         logger.info(f'created stock {name} @ {exchange["name"]} -> {stock["_id"]}')
         return stock
+
+    def create_vote_label(self, name: str) -> dict:
+        label = {
+            '_id': ObjectId(),
+            'name': name,
+            'symbol': slugify(name)
+        }
+        self.vote_labels.insert_one(label)
+        return label
 
     def login(self, token: str) -> dict:
         user = self.users.find_one({'token': token})

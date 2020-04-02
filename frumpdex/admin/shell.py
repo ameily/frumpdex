@@ -27,6 +27,7 @@ class AdminShell(Shell):
     exchange_cmd = commands.ExchangeCommand()
     stock_cmd = commands.StockCommand()
     user_cmd = commands.UserCommand()
+    vlabel_cmd = commands.VoteLabelCommand()
 
     exit_cmd = ExitCommand()
     echo_cmd = EchoCommand()
@@ -59,21 +60,3 @@ class AdminShell(Shell):
 
         prompt += f' {AnsiCodes.green.prompt()})>{AnsiCodes.reset.prompt()} '
         self.prompt = prompt
-
-
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-f', '--file', action='store', help='execute commands from file')
-
-    args = parser.parse_args()
-
-    shell = AdminShell()
-
-    if args.file:
-        shell.on_cmdloop_begin()
-        with open(args.file, 'r') as fp:
-            shell.include(fp)
-    else:
-        shell.cmdloop()

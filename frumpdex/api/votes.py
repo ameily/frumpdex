@@ -42,8 +42,12 @@ class VoteStockResource(VoteResource):
         if stock['exchange_id'] != g.user['exchange_id']:
             abort(404, message='stock does not exist')
 
-        vote = g.db.vote(stock_id, g.user['token'], request.form['direction'],
-                         request.form['message'])
+        direction = request.form['direction']
+        comment = request.form['comment']
+        labels = request.form.getlist('labels[]')
+        rating = int(request.form['rating'])
+        vote = g.db.vote(stock_id, g.user['token'], direction, comment, labels=labels,
+                         rating=rating)
 
         g.socketio.emit('vote', vote, room=f'exchange.{stock["exchange_id"]}')
 

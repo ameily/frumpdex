@@ -21,10 +21,10 @@
           this.listeners.push({event: evt, func: func});
         },
 
-        fire: function(evt) {
+        fire: function(evt, message) {
           this.listeners.forEach(function(listener) {
             if(evt == listener.event) {
-              listener.func();
+              listener.func(message);
             }
           })
         }
@@ -34,6 +34,32 @@
         riot.compile().then(function() {
           Page.fire('ready');
         });
+      });
+
+      function _getRiotComponentSymbol(ele) {
+        var symbols = Object.getOwnPropertySymbols(ele);
+        for(var i = 0; i < symbols.length; ++i) {
+          if(symbols[i].toString() == 'Symbol(riot-component)') {
+            return symbols[i];
+          }
+        }
+
+        return null;
+      }
+
+      riot.install(component => {
+        component.tag = function(name) {
+          var ele = this.$(name);
+          var symbol = _getRiotComponentSymbol(ele);
+          return symbol ? ele[symbol] : null;
+        };
+
+        component.tags = function(name) {
+          return this.$$(name).map(ele => {
+            var symbol = _getRiotComponentSymbol(ele);
+            return symbol ? ele[symbol] : null;
+          }).filter(tag => tag != null);
+        };
       });
     </script>
 

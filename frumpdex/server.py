@@ -133,7 +133,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--port', type=int, default=5000, help='web server listening port',
                         action='store')
-    parser.add_argument('-H', '--host', default='0.0.0.0', help='web server listening address',
+    parser.add_argument('-H', '--host', default='127.0.0.1', help='web server listening address',
                         action='store')
     parser.add_argument('--debug', action='store_true', help='debug mode')
     parser.add_argument('-l', '--log', action='store', help='log file', dest='logfile')
