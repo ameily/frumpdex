@@ -25,5 +25,12 @@
         },
         "editor.suggest.insertMode": "replace",
         "editor.tabSize": 2
+    },
+    "[javascript]": {
+        "editor.tabSize": 2
+    },
+    "[css]": {
+        "editor.suggest.insertMode": "replace",
+        "editor.tabSize": 2
     }
 }
