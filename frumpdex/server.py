@@ -146,6 +146,7 @@ def setup_logging(logfile: str, debug: bool, silent: bool) -> None:
     if logfile:
         handler = logging.FileHandler(logfile, 'a')
         handler.setFormatter(logging.Formatter(fmt))
+        logger.addHandler(handler)
 
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
 
