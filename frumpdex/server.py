@@ -5,7 +5,7 @@
 import logging
 import sys
 import json
-from typing import List
+from typing import List, Optional
 
 from flask import Flask, g, request, session, Blueprint, Response
 import flask.json
@@ -21,6 +21,9 @@ logger = logging.getLogger('frumpdex')
 
 
 class FrumpdexJsonEncoder(flask.json.JSONEncoder):
+    '''
+    Handles JSON serializing extra types (datetime and ObjectId).
+    '''
 
     def default(self, o):
         return serialize_extra_types(o, default=super().default)
@@ -36,12 +39,21 @@ socketio = SocketIO(app, json=flask.json)
 
 
 @api.representation('application/json')
-def api_json_serializer(data, code, headers=None):
+def api_json_serializer(data, code, headers=None) -> Response:
+    '''
+    Handles JSON serialization from the REST API.
+    '''
     return Response(json.dumps(data, default=serialize_extra_types), code,
                     mimetype='application/json')
 
 
-def get_request_user(db: FrumpdexDatabase):
+def get_request_user(db: FrumpdexDatabase) -> Optional[dict]:
+    '''
+    Get the user for the active request. Looks at either the header "Authorization Bearer" token or
+    if the user is already authenticated in the session.
+
+    :returns: the user from object the database if the token is valid
+    '''
     token = session.get('token')
     header_auth = request.headers.get('Authorization')
     if not token and header_auth:
@@ -53,7 +65,10 @@ def get_request_user(db: FrumpdexDatabase):
 
 
 @app.before_request
-def before_request():
+def before_request() -> None:
+    '''
+    Populate the global ``g`` object
+    '''
     g.db = FrumpdexDatabase.instance()
     g.socketio = socketio
 
@@ -62,14 +77,21 @@ def before_request():
 
 
 @socketio.on('connect')
-def handle_connect():
+def handle_connect() -> None:
+    '''
+    Authenticate a user attempting to connect to the web socket.
+    '''
     user = get_request_user(FrumpdexDatabase.instance())
     if not user:
         raise ConnectionRefusedError('unauthorized')
 
 
 @socketio.on('join')
-def handle_join_room(data):
+def handle_join_room(data) -> None:
+    '''
+    Authenticate the user attempting to join a web socket room and verify that they have proper
+    authorization (belong to the correct Exchange).
+    '''
     room = data["room"]
     user = get_request_user(FrumpdexDatabase.instance())
 
@@ -82,24 +104,39 @@ def handle_join_room(data):
 
 @socketio.on('leave')
 def handle_leave_room(data):
+    '''
+    Websocket client leave room.
+    '''
     logger.debug(f'leave room: {data["room"]}')
     leave_room(data['room'])
 
 
-
-def register_apis():
+def register_apis() -> None:
+    '''
+    Register the REST API endpoints (flask_restful Resources).
+    '''
     for resource_cls, endpoints in get_registered_resources():
         logger.debug(f'registering API resource {resource_cls}: {endpoints}')
         api.add_resource(resource_cls, *[f'/api/v1/{ep.strip("/")}' for ep in endpoints])
 
 
-def register_views():
+def register_views() -> None:
+    '''
+    Register the views.
+    '''
     for blueprint in get_blueprints():
         logger.debug(f'registering view: {blueprint.name}')
         app.register_blueprint(blueprint)
 
 
-def setup_logging(logfile: str, debug: bool, silent: bool):
+def setup_logging(logfile: str, debug: bool, silent: bool) -> None:
+    '''
+    Setup logging.
+
+    :param logfile: save logs to a file
+    :param debug: set log level to debug
+    :param silent: don't print anything to stdout/stderr
+    '''
     fmt = '[%(asctime)s] %(levelname)s: %(message)s'
     if not silent:
         handler = logging.StreamHandler(sys.stdout)
@@ -116,6 +153,9 @@ def setup_logging(logfile: str, debug: bool, silent: bool):
 def run_server(debug: bool = False, host: str = '127.0.0.1', port: int = 5000,
                logfile: str = None, silent: bool = False, mongo_uri: str = None,
                cors_allowed_origins: List[str] = None):
+    '''
+    Run the frumpdex server.
+    '''
     setup_logging(logfile, debug=debug, silent=silent)
 
     db = FrumpdexDatabase.instance()
