@@ -16,6 +16,7 @@ from bson import ObjectId
 from .db import FrumpdexDatabase
 from .api.lib import serialize_extra_types, get_registered_resources
 from .views.lib import get_blueprints
+from .config import config
 
 logger = logging.getLogger('frumpdex')
 
@@ -188,6 +189,8 @@ if __name__ == '__main__':
                         default='mongodb://localhost:27017')
     parser.add_argument('--cors-allowed-origins', default=None, action='store',
                         help='comma-separated list of allowed origins ("*") for all')
+    parser.add_argument('-c', '--config', type='str', action='store',
+                        help='load configuration file')
 
     args = parser.parse_args()
     if args.cors_allowed_origins:

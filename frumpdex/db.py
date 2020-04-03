@@ -106,6 +106,13 @@ class FrumpdexDatabase:
             vlabels = db.create_collection('vote_labels')
             vlabels.create_index('symbol')
 
+    def _stock_statistics_initial_doc(self) -> dict:
+        return {
+            'ups': 0,
+            'downs': 0,
+            'ratings': 0
+        }
+
     @property
     def db(self) -> pymongo.database.Database:
         '''
@@ -157,6 +164,45 @@ class FrumpdexDatabase:
         '''
         return self.db.stock_day_activity
 
+    def update_gitlab_activity(self, stock_id: ObjectIdStr, activity: dict,
+                               day: arrow.Arrow = None) -> None:
+        '''
+        Update a stock's gitlab activity for a specific day.
+
+        :param stock_id: stock id
+        :param activity: gitlab activity block
+        :param day: the day corresponding to the gitlab activity (today if not specified)
+        '''
+        stock_id = ObjectId(stock_id)
+        stock = self.stocks.find_one(stock_id)
+        if not stock:
+            raise ItemDoesNotExist('stocks')
+
+        inc_doc = self._stock_statistics_initial_doc()
+        set_doc = {
+            'gitlab_activity': activity
+        }
+        if not day:
+            day = arrow.now()
+
+        day = midnight(day)
+        self.stock_day_activity.update_one({
+            'stock_id': stock['_id'],
+            'exchange_id': stock['exchange_id'],
+            'date': day
+        }, {
+            '$inc': inc_doc,
+            '$set': set_doc
+        }, upsert=True)
+
+        lifetime_inc_doc = {
+            f'gitlab.{key}': value for key, value in activity.items()
+        }
+
+        self.stocks.update_one({'stock_id': stock['_id']}, {
+            '$inc': lifetime_inc_doc
+        })
+
     def vote(self, stock_id: ObjectIdStr, token: str, direction: str, comment: str,
              rating: int = 0, labels: List[str] = None) -> dict:
         '''
@@ -173,11 +219,10 @@ class FrumpdexDatabase:
         stock_id = ObjectId(stock_id)
         stock = self.stocks.find_one(stock_id)
 
+        inc_doc = self._stock_statistics_initial_doc()
+
         if direction in ('up', '1', '+1'):
-            inc_doc = {
-                'ups': 1,
-                'downs': 0
-            }
+            inc_doc['ups'] = 1
             if not rating:
                 rating = 1
             elif rating < 0:
@@ -186,17 +231,14 @@ class FrumpdexDatabase:
             if rating > 5:
                 rating = 5
         elif direction in ('down', '-1'):
-            inc_doc = {
-                'downs': 1,
-                'ups': 0
-            }
+            inc_doc['downs'] = 1
             if not rating:
                 rating = -1
             elif rating > 0:
                 rating *= -1
 
             if rating < -5:
-                raitng = -5
+                rating = -5
         else:
             raise TypeError(f'invalid vote: {direction} -- must be either "up" or "down"')
 
@@ -219,7 +261,6 @@ class FrumpdexDatabase:
             'stock_id': stock_id,
             'user_id': user['_id'],
             'exchange_id': user['exchange_id'],
-            # 'vote': 1 if direction == 'up' else -1,
             'comment': comment,
             'rating': rating,
             'labels': labels or [],
