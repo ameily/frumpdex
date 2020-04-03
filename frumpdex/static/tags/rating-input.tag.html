@@ -16,7 +16,7 @@
     }
   </style>
   <div class=''>
-    <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
+    <span class='rating oi oi-{props.icon} {props.selectedClass}' onclick='{rate}'></span>
     <span class='sep'>&nbsp;</span>
     <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
     <span class='sep'>&nbsp;</span>
@@ -29,6 +29,12 @@
 
   <script>
     export default {
+      onBeforeMount(props, state) {
+        this.state = {
+          value: 1
+        };
+      },
+
       onUpdated(props, state) {
         this.$$('.rating').forEach((ele, i) => {
           if(i < state.value) {
@@ -52,7 +58,7 @@
       },
 
       reset() {
-        this.update({value: 0});
+        this.update({value: 1});
       }
     }
   </script>

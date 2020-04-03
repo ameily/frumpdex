@@ -131,7 +131,7 @@
             stock.activity = {
               ups: 0,
               downs: 0,
-              votes: 0
+              rating: 0
             };
           });
 
@@ -170,14 +170,13 @@
 
         stock = this.state.stocks[stockIndex];
 
-        stock.votes += 1;
-        if(vote.vote > 0) {
-          stock.ups += vote.vote;
-          stock.activity.ups += vote.vote;
+        if(vote.rating > 0) {
+          stock.activity.ups += 1;
         } else {
-          stock.downs -= vote.vote;
-          stock.activity.downs -= vote.vote;
+          stock.activity.downs += 1;
         }
+
+        stock.activity.rating += vote.rating;
 
         this.state.stocks.splice(stockIndex, 1, stock);
         this.setGeneratedActivityFields(stock.activity);
@@ -185,14 +184,12 @@
       },
 
       setGeneratedActivityFields(activity) {
-        var diff = activity.ups - activity.downs;
-
-        if(diff > 0) {
+        if(activity.rating > 0) {
           activity.diffClass = 'bg-success';
-          activity.diff = `+${diff}`;
-        } else if(diff < 0) {
+          activity.diff = `+${activity.rating}`;
+        } else if(activity.rating < 0) {
           activity.diffClass = 'bg-danger';
-          activity.diff = diff;
+          activity.diff = activity.rating.toString();
         } else {
           activity.diffClass = ''
           activity.diff = `+0`;
