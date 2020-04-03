@@ -6,4 +6,4 @@ gevent
 gevent-websocket
 pymongo
 pypsi
-slugify
+python-slugify
