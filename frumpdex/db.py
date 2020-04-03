@@ -69,6 +69,8 @@ class FrumpdexDatabase:
 
         self.client = client
 
+        self._create_indexes()
+
     def _create_indexes(self) -> None:
         '''
         Create collection indexes.
