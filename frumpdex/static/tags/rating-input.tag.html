@@ -16,23 +16,56 @@
     }
   </style>
   <div class=''>
-    <span class='rating oi oi-{props.icon} {props.selectedClass}' onclick='{rate}'></span>
+    <span class='rating oi oi-{props.icon} {props.selectedClass}' onclick='{rate}'
+          data-toggle="tooltip" data-placement="top"></span>
     <span class='sep'>&nbsp;</span>
-    <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
+    <span class='rating oi oi-{props.icon}' onclick='{rate}'
+          data-toggle="tooltip" data-placement="top"></span>
     <span class='sep'>&nbsp;</span>
-    <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
+    <span class='rating oi oi-{props.icon}' onclick='{rate}'
+          data-toggle="tooltip" data-placement="top"></span>
     <span class='sep'>&nbsp;</span>
-    <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
+    <span class='rating oi oi-{props.icon}' onclick='{rate}'
+          data-toggle="tooltip" data-placement="top"></span>
     <span class='sep'>&nbsp;</span>
-    <span class='rating oi oi-{props.icon}' onclick='{rate}'></span>
+    <span class='rating oi oi-{props.icon}' onclick='{rate}'
+          data-toggle="tooltip" data-placement="top"></span>
   </div>
 
   <script>
     export default {
       onBeforeMount(props, state) {
+        this.positive = [
+          'Good',
+          'Great',
+          'Excellent',
+          'Amazing',
+          'Life-saver!'
+        ];
+
+        this.negative = [
+          'Meh',
+          'Bad',
+          'Awful',
+          'Disruptive',
+          'Hinderance'
+        ];
+
         this.state = {
           value: 1
         };
+      },
+
+      onMounted(props, state) {
+        var self = this;
+        this.$$('.rating').forEach((ele, i) => {
+          $(ele).tooltip({
+            title: () => {
+              var tooltips = self.props.direction == 'up' ? self.positive : self.negative;
+              return tooltips[i];
+            }
+          });
+        });
       },
 
       onUpdated(props, state) {

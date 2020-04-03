@@ -17,6 +17,7 @@
       <div>
         <label class='pr-3'>Rating:</label>
         <rating-input style='display: inline-block'
+                      direction='{props.direction}'
                       selected-class='{ props.direction == "up" ? "text-warning" : "text-danger" }'
                       icon='{props.direction == "up" ? "star" : "trash" }'></rating-input>
       </div>
