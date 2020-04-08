@@ -8,3 +8,4 @@ gevent-websocket
 pymongo
 pypsi
 python-slugify
+pyyaml

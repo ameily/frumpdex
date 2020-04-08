@@ -12,6 +12,7 @@ import flask.json
 from flask_restful import Api
 from flask_socketio import SocketIO, join_room, leave_room
 from bson import ObjectId
+from cincoconfig import Config
 
 from .db import FrumpdexDatabase
 from .api.lib import serialize_extra_types, get_registered_resources
@@ -152,56 +153,51 @@ def setup_logging(logfile: str, debug: bool, silent: bool) -> None:
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
 
 
-def run_server(debug: bool = False, host: str = '127.0.0.1', port: int = 5000,
-               logfile: str = None, silent: bool = False, mongo_uri: str = None,
-               cors_allowed_origins: List[str] = None):
+def run_server(cfg: Config):
     '''
     Run the frumpdex server.
     '''
-    setup_logging(logfile, debug=debug, silent=silent)
+    setup_logging(cfg.logfile, debug=cfg.is_debug_mode, silent=cfg.silent)
 
     db = FrumpdexDatabase.instance()
-    db.connect(mongo_uri)
+    db.connect(cfg.mongodb.url)
 
     register_apis()
     register_views()
 
-    if cors_allowed_origins:
+    if cfg.http.cors.allowed_origins:
         # is this a hack? idk
-        socketio.server.eio.cors_allowed_origins = cors_allowed_origins
+        socketio.server.eio.cors_allowed_origins = cfg.http.cors.allowed_origins
 
-    logger.info(f'starting frumpdex server: http://{host}:{port}')
-    socketio.run(app, debug=debug, host=host, port=port)
+    logger.info(f'starting frumpdex server: http://{cfg.http.address}:{cfg.http.port}')
+    socketio.run(app, debug=cfg.is_debug_mode, host=cfg.http.address, port=cfg.http.port)
 
 
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--port', type=int, default=5000, help='web server listening port',
-                        action='store')
-    parser.add_argument('-H', '--host', default='127.0.0.1', help='web server listening address',
-                        action='store')
-    parser.add_argument('--debug', action='store_true', help='debug mode')
-    parser.add_argument('-l', '--log', action='store', help='log file', dest='logfile')
+    parser.add_argument('-p', '--port', type=int, help='web server listening port', action='store',
+                        dest='http.port')
+    parser.add_argument('-H', '--host', help='web server listening address', action='store',
+                        dest='http.address')
+    parser.add_argument('--debug', action='store_const', help='debug mode', dest='mode',
+                        const='debug')
+    parser.add_argument('-l', '--log', action='store', help='log file')
     parser.add_argument('-s', '--silent', action='store_true', help='disable console output')
-    parser.add_argument('-m', '--mongo-uri', action='store', help='MongoDB URI',
-                        default='mongodb://localhost:27017')
-    parser.add_argument('--cors-allowed-origins', default=None, action='store',
-                        help='comma-separated list of allowed origins ("*") for all')
-    parser.add_argument('-c', '--config', type='str', action='store',
-                        help='load configuration file')
+    parser.add_argument('-m', '--mongo-url', action='store', help='MongoDB URI',
+                        dest='mongodb.url')
+    parser.add_argument('--cors-allowed-origins', action='append',
+                        dest='http.cors.allowed_origins',
+                        help='list of CORS allowed origins, can be specified multiple times')
+    parser.add_argument('-c', '--config', action='store',
+                        help='load YAML configuration file, additional command line parameters '
+                             'will override configuration file settings')
 
     args = parser.parse_args()
-    if args.cors_allowed_origins:
-        if args.cors_allowed_origins == '*':
-            cors_allowed_origins = '*'
-        else:
-            cors_allowed_origins = [item.strip() for item in args.cors_allowed_origins.split(',')
-                                    if item.strip()]
-    else:
-        cors_allowed_origins = None
+    if args.config:
+        config.load(args.config, format='yaml')
 
-    run_server(debug=args.debug, host=args.host, port=args.port, logfile=args.logfile,
-               silent=args.silent, mongo_uri=args.mongo_uri,
-               cors_allowed_origins=cors_allowed_origins)
+    config.cmdline_args_override(args, ignore=['config'])
+
+    run_server(config)
