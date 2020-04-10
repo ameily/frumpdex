@@ -189,7 +189,7 @@ class FrumpdexDatabase:
         self.stock_day_activity.update_one({
             'stock_id': stock['_id'],
             'exchange_id': stock['exchange_id'],
-            'date': day
+            'date': day.datetime
         }, {
             '$inc': inc_doc,
             '$set': set_doc
