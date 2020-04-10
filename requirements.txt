@@ -7,4 +7,5 @@ gevent
 gevent-websocket
 pymongo
 pypsi
+python-gitlab
 python-slugify
