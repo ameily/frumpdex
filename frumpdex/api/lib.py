@@ -7,6 +7,7 @@ import importlib
 from typing import List, Union, Callable, Type, Tuple
 from datetime import datetime, timedelta, date
 from bson import ObjectId
+from cincoconfig import Config
 import arrow
 
 from flask import request, session, g
@@ -47,7 +48,15 @@ def parse_time_window_query(window: str) -> dict:
     elif window == 'lifetime':
         q = {}
     elif window:
-        q = {}  # TODO handle custom window
+        if window.startswith('-'):
+            # all to date
+            pass
+        elif window.endswith('-'):
+            # all from date
+            pass
+        else:
+            # specific range
+            pass
 
     return q
 
@@ -67,6 +76,8 @@ def serialize_extra_types(value, default=None):
         return str(value)
     if isinstance(value, (datetime, date)):
         return value.isoformat()
+    if isinstance(value, Config):
+        return value.to_tree()
     if default:
         return default(value)
     raise TypeError(f'unserializable type: {type(value)}')

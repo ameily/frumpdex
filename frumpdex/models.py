@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Union, Any
 import arrow
-from cincoconfig import Schema, StringField, Field, IntField, ListField, DictField
+from cincoconfig import Schema, StringField, Field, IntField, ListField, DictField, VirtualField
 from cincoconfig.abc import BaseConfig
 from bson import ObjectId
 
@@ -27,6 +27,14 @@ class DatetimeField(Field):
         if isinstance(value, arrow.Arrow):
             return value.datetime
         raise TypeError(f'invalid datetime: {value}')
+
+
+def stock_statistics_base_doc():
+    return {
+        'ups': 0,
+        'downs': 0,
+        'rating': 0
+    }
 
 
 gitlab_activity_schema = Schema(dynamic=True)
@@ -73,6 +81,17 @@ vote_schema.comment = StringField(required=True)
 vote_schema.rating = IntField(min=-5, max=5, default=0)
 vote_schema.labels = ListField(StringField(), default=lambda: [])
 vote_schema.date = DatetimeField(required=True)
+
+@vote_schema.instance_method('get_increment_doc')
+def vote_get_inc_doc(vote: 'Vote'):
+    label_key = 'up_labels' if vote.rating > 0 else 'down_labels'
+    inc = {
+        'ups': 1 if vote.rating > 0 else 0,
+        'downs': 1 if vote.rating < 0 else 0,
+        'rating': vote.rating,
+    }
+    inc.update({f'{label_key}.{label}': 1 for label in vote.labels})
+    return inc
 
 stock_day_activity_schema = Schema()
 stock_day_activity_schema._id = ObjectIdField()

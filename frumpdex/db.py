@@ -14,6 +14,8 @@ from bson import ObjectId
 from slugify import slugify
 import arrow
 
+from .models import Exchange, User, Vote, VoteLabel, Stock, stock_statistics_base_doc
+
 logger = logging.getLogger(__name__)
 
 
@@ -106,13 +108,6 @@ class FrumpdexDatabase:
             vlabels = db.create_collection('vote_labels')
             vlabels.create_index('symbol')
 
-    def _stock_statistics_initial_doc(self) -> dict:
-        return {
-            'ups': 0,
-            'downs': 0,
-            'ratings': 0
-        }
-
     @property
     def db(self) -> pymongo.database.Database:
         '''
@@ -178,9 +173,9 @@ class FrumpdexDatabase:
         if not stock:
             raise ItemDoesNotExist('stocks')
 
-        inc_doc = self._stock_statistics_initial_doc()
+        inc_doc = stock_statistics_base_doc()
         set_doc = {
-            'gitlab_activity': activity
+            'gitlab': activity
         }
         if not day:
             day = arrow.now()
@@ -203,8 +198,8 @@ class FrumpdexDatabase:
             '$inc': lifetime_inc_doc
         })
 
-    def vote(self, stock_id: ObjectIdStr, token: str, direction: str, comment: str,
-             rating: int = 0, labels: List[str] = None) -> dict:
+    def vote(self, stock_id: ObjectIdStr, user: Union[User, dict], direction: str, comment: str,
+             rating: int = 0, labels: List[str] = None) -> Vote:
         '''
         Cast a vote.
 
@@ -216,13 +211,14 @@ class FrumpdexDatabase:
         :param labels: the list of label symbols applying to the vote
         :returns: the created vote
         '''
+        labels = labels or []
         stock_id = ObjectId(stock_id)
         stock = self.stocks.find_one(stock_id)
 
-        inc_doc = self._stock_statistics_initial_doc()
+        if not stock:
+            raise ItemDoesNotExist('stock')
 
         if direction in ('up', '1', '+1'):
-            inc_doc['ups'] = 1
             if not rating:
                 rating = 1
             elif rating < 0:
@@ -231,7 +227,6 @@ class FrumpdexDatabase:
             if rating > 5:
                 rating = 5
         elif direction in ('down', '-1'):
-            inc_doc['downs'] = 1
             if not rating:
                 rating = -1
             elif rating > 0:
@@ -242,33 +237,19 @@ class FrumpdexDatabase:
         else:
             raise TypeError(f'invalid vote: {direction} -- must be either "up" or "down"')
 
-        inc_doc['rating'] = rating
-
-        if not stock:
-            raise ItemDoesNotExist('stock')
-
-        user = self.login(token)
-        if not user:
-            raise ItemDoesNotExist('user')
-
         if user['exchange_id'] != stock['exchange_id']:
             raise ItemDoesNotExist('user')
 
         today = midnight().datetime
 
-        vote = {
-            '_id': ObjectId(),
-            'stock_id': stock_id,
-            'user_id': user['_id'],
-            'exchange_id': user['exchange_id'],
-            'comment': comment,
-            'rating': rating,
-            'labels': labels or [],
-            'date': today
-        }
+        vote = Vote(_id=ObjectId(), stock_id=stock_id, user_id=user['_id'],
+                    exchange_id=user['exchange_id'], comment=comment, rating=rating,
+                    labels=labels, date=today)
 
+        vote.validate()
+        inc_doc = vote.get_increment_doc()
         logger.info(f'user {user["name"]} is voting {direction} stock {stock["name"]}')
-        self.votes.insert_one(vote)
+        self.votes.insert_one(vote.to_tree())
 
         self.stock_day_activity.update_one({
             'stock_id': stock['_id'],
@@ -284,19 +265,20 @@ class FrumpdexDatabase:
 
         return vote
 
-    def create_exchange(self, name: str) -> dict:
+    def create_exchange(self, name: str) -> Exchange:
         '''
         Create a a new exchange.
 
         :param name: the exchange name
         :returns: the new exchange
         '''
-        exchange = {'name': name, '_id': ObjectId()}
-        self.exchanges.insert_one(exchange)
-        logger.info(f'created exchange {name} -> {exchange["_id"]}')
+        exchange = Exchange(name=name, _id=ObjectId())
+        exchange.validate()
+        self.exchanges.insert_one(exchange.to_tree())
+        logger.info(f'created exchange {name} -> {exchange._id}')
         return exchange
 
-    def create_user(self, exchange_id: ObjectIdStr, name: str) -> dict:
+    def create_user(self, exchange_id: ObjectIdStr, name: str) -> User:
         '''
         Create a new user.
 
@@ -309,19 +291,15 @@ class FrumpdexDatabase:
             raise ItemDoesNotExist('exchange')
 
         token = secrets.token_hex(16)
-        user = {
-            'exchange_id': exchange['_id'],
-            'name': name,
-            'token': token,
-            '_id': ObjectId()
-        }
-        self.users.insert_one(user)
+        user = User(exchange_id=exchange['_id'], name=name, token=token, _id=ObjectId())
+        user.validate()
+        self.users.insert_one(user.to_tree())
 
-        logger.info(f'created user {name} @ {exchange["name"]} -> {user["_id"]}')
+        logger.info(f'created user {name} @ {exchange["name"]} -> {user._id}')
 
         return user
 
-    def create_stock(self, exchange_id: ObjectIdStr, name: str, symbol: str = None) -> dict:
+    def create_stock(self, exchange_id: ObjectIdStr, name: str, symbol: str = None) -> Stock:
         '''
         Create a new stock.
 
@@ -337,36 +315,27 @@ class FrumpdexDatabase:
         if not symbol:
             symbol = slugify(name)
 
-        stock = {
-            'exchange_id': ObjectId(exchange_id),
-            'name': name,
-            'symbol': symbol,
-            'ups': 0,
-            'downs': 0,
-            'votes': 0,
-            '_id': ObjectId()
-        }
-        self.stocks.insert_one(stock)
+        stock = Stock(exchange_id=ObjectId(exchange_id), name=name, symbol=symbol, ups=0, downs=0,
+                      rating=0, _id=ObjectId())
+        stock.validate()
+        self.stocks.insert_one(stock.to_tree())
 
-        logger.info(f'created stock {name} @ {exchange["name"]} -> {stock["_id"]}')
+        logger.info(f'created stock {name} @ {exchange["name"]} -> {stock._id}')
         return stock
 
-    def create_vote_label(self, name: str) -> dict:
+    def create_vote_label(self, name: str) -> VoteLabel:
         '''
         Create a new vote label.
 
         :param name: vote label name
         :returns: the new vote label
         '''
-        label = {
-            '_id': ObjectId(),
-            'name': name,
-            'symbol': slugify(name)
-        }
-        self.vote_labels.insert_one(label)
+        label = VoteLabel(_id=ObjectId(), name=name, symbol=slugify(name))
+        label.validate()
+        self.vote_labels.insert_one(label.to_tree())
         return label
 
-    def login(self, token: str) -> Optional[dict]:
+    def login(self, token: str) -> Optional[User]:
         '''
         Attempt to authenticate a user based on their API token.
 

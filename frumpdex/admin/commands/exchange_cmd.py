@@ -67,8 +67,8 @@ class ExchangeCommand(Command):
         exchange = shell.ctx.db.create_exchange(name)
         print('created new exchange successfully')
         print()
-        print('Id:  ', exchange['_id'])
-        print('Name:', exchange['name'])
+        print('Id:  ', exchange._id)
+        print('Name:', exchange.name)
 
         if select:
             shell.select_exchange(exchange)
